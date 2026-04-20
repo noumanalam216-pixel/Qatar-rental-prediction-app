@@ -2,5 +2,6 @@ streamlit
 pandas
 numpy
 scikit-learn
+pickle
 matplotlib
 shap==0.44.1
