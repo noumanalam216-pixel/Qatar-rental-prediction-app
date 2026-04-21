@@ -1,37 +1,111 @@
 import streamlit as st
-import pandas as pd
-import numpy as np
-import pickle
-import shap
-import matplotlib.pyplot as plt
+import pandas as pd 
+import numpy as np 
+import pickle 
 
-# ---------------- LOAD MODEL ----------------
+#Load Model
+
 with open("models/rent_model.pkl", "rb") as f:
     model = pickle.load(f)
 
-# ---------------- PAGE CONFIG ----------------
-st.set_page_config(page_title="Qatar Rental Predictor", page_icon="🏠", layout="centered")
 
-# ---------------- TITLE ----------------
-st.title("🏠 Qatar Rental Price Predictor")
-st.markdown("Estimate monthly rent using Machine Learning with AI insights")
+#Page config
 
-st.subheader("📋 Property Details")
+st.set_page_config(
+    page_title="Qatar Rental Price Predictor",
+    page_icon="QA",
+    layout="wide"
+)
 
-# ---------------- INPUTS ----------------
+#CSS
+st.markdown("""
+<style>
+
+.result-box {
+    background-color:#1e293b;
+    padding:10px 20px;
+    border-radius:10px;
+    text-align:center;
+    color:white;
+    margin-top:15px;
+}
+
+.big-font {
+    font-size:34px;
+    font-weight:bold;
+    color:#00e676;
+}
+
+.range-text {
+    font-size:16px;
+    margin-top:5px;
+}
+
+.metric-text {
+    font-size:15px;
+    color:#334155;
+    font-weight:600;
+}
+
+</style>
+""", unsafe_allow_html=True)
+
+#Title
+
+st.markdown(
+"# 🇶🇦 Qatar Rental Price Predictor"
+)
+
+st.caption(
+"AI-powered rental price estimation for apartments in Qatar"
+)
+
+
+#Input Section
+
 col1, col2 = st.columns(2)
 
 with col1:
-    location = st.selectbox("Location", ["Doha", "Lusail", "Al Wakra", "Al Khor"])
-    bedrooms = st.number_input("Bedrooms", 1, 10, 2)
-    bathrooms = st.number_input("Bathrooms", 1, 10, 2)
+    location = st.selectbox(
+        "Location",
+        ["Doha", "Lusail", "Al Wakra", "Other"]
+
+    )
+
+    bedrooms = st.number_input(
+        "Bedrooms",
+        min_value=1,
+        max_value=6,
+        value=2
+    )
+
+    bathrooms = st.number_input(
+        "Bathrooms",
+        min_value=1,
+        max_value=5,
+        value=2
+    )
 
 with col2:
-    area = st.number_input("Area (sqm)", 50, 500, 120)
-    property_type = st.selectbox("Property Type", ["Apartment", "Villa"])
+    area = st.number_input(
+        "Area (sqm)",
+        min_value = 30,
+        max_value=500,
+        value=120
 
-# ---------------- PREDICTION ----------------
+    )
+
+    Property_type = st.selectbox(
+        "Property type",
+        ["Apartment"]
+    )
+
+
+#Predict Button
+
 if st.button("🔍 Predict Rent"):
+
+    st.divider()
 
     area_per_room = area / bedrooms
 
@@ -41,112 +115,61 @@ if st.button("🔍 Predict Rent"):
         "bathrooms": [bathrooms],
         "area": [area],
         "area_per_room": [area_per_room],
-        "property_type": [property_type]
+        "property_type": [Property_type]
     })
 
-    # Prediction
-    log_pred = model.predict(input_data)
-    price = np.expm1(log_pred)[0]
+    log_prediction = model.predict(input_data)
+
+    price = np.expm1(log_prediction)[0]
 
     lower = price * 0.9
     upper = price * 1.1
+
+    # IMPORTANT
     rent_per_sqm = price / area
 
-    st.divider()
 
-    # ---------------- RESULT CARD ----------------
-    st.subheader("💰 Estimated Monthly Rent")
+# Display Result
+  
+    st.markdown('<div class="result-box">', unsafe_allow_html=True)
 
-    st.markdown("""
-    <style>
-    .result-card {
-        background-color: #f1f5f9;
-        padding: 15px;
-        border-radius: 10px;
-        border-left: 5px solid #22c55e;
-    }
-    .big-price {
-        font-size: 28px;
-        font-weight: bold;
-        color: #16a34a;
-    }
-    .range-text {
-        color: #334155;
-        font-size: 15px;
-    }
-    </style>
-    """, unsafe_allow_html=True)
+    st.markdown(
+        f'<p style="font-size:20px;">Estimated Monthly Rent</p>',
+        unsafe_allow_html=True
+    )
 
-    st.markdown(f"""
-    <div class="result-card">
-        <p class="big-price">QAR {price:,.0f}</p>
-        <p class="range-text">Range: QAR {lower:,.0f} — QAR {upper:,.0f}</p>
-        <p class="range-text">Rent per sqm: {rent_per_sqm:.2f} QAR</p>
-    </div>
-    """, unsafe_allow_html=True)
+    st.markdown(
+        f'<p class="big-font">QAR {price:,.0f}</p>',
+        unsafe_allow_html=True
+    )
 
-    # ---------------- LOCATION INSIGHT ----------------
-    location_avg = {
-        "Doha": 6500,
-        "Lusail": 7200,
-        "Al Wakra": 4000,
-        "Al Khor": 3500
-    }
+    st.markdown(
+        f'<p class="range-text">Estimated Range: QAR {lower:,.0f} — QAR {upper:,.0f}</p>',
+        unsafe_allow_html=True
+    )
 
-    avg_rent = location_avg.get(location, price)
+    st.markdown(
+        f'<p class="metric-text">Rent per sqm: {rent_per_sqm:.2f} QAR</p>',
+        unsafe_allow_html=True
+    )
 
-    st.info(f"📍 Average rent in {location}: QAR {avg_rent:,.0f}")
+    st.markdown('</div>', unsafe_allow_html=True)
 
-    if price > avg_rent:
-        st.success("📈 This property is above average pricing")
-    else:
-        st.info("📉 This property is below average pricing")
 
-    # ---------------- CHART ----------------
-    st.subheader("📊 Price Comparison")
+# Explanation Section
 
-    labels = ["Predicted", "Average"]
-    values = [price, avg_rent]
+st.markdown("---")
 
-    fig, ax = plt.subplots()
-    ax.bar(labels, values)
-    st.pyplot(fig)
+st.subheader("🧠 How This Prediction Works")
 
-    # ---------------- SHAP EXPLANATION ----------------
-    st.subheader("🧠 Why this price?")
-
-    try:
-        explainer = shap.Explainer(model.named_steps["regressor"])
-        transformed_input = model.named_steps["preprocessor"].transform(input_data)
-        shap_values = explainer(transformed_input)
-
-        feature_names = model.named_steps["preprocessor"].get_feature_names_out()
-
-        for name, val in zip(feature_names, shap_values.values[0]):
-            st.write(f"{name}: {val:.2f}")
-
-    except:
-        st.warning("SHAP explanation not available for this model structure.")
-
-    # ---------------- AI INSIGHTS ----------------
-    st.subheader("🤖 AI Insights")
-
-    if area > 150:
-        st.write("✔ Large property size increases rental value.")
-    if bedrooms > 3:
-        st.write("✔ More bedrooms increase property demand.")
-    if location == "Doha":
-        st.write("✔ Premium location significantly impacts price.")
-    if rent_per_sqm > 60:
-        st.write("✔ High rent per sqm indicates luxury pricing.")
-
-    # ---------------- HOW IT WORKS ----------------
-    st.subheader("🧠 How This Works")
-
-    st.markdown("""
-    - Model: Gradient Boosting Regressor  
-    - Uses log transformation for better accuracy  
-    - Feature engineering: area per room  
-    - Includes location-based and AI-driven insights  
-    - Provides explainable predictions using SHAP  
-    """)
+st.markdown("""
+- The model uses **Gradient Boosting Regression**.
+- Prices were **log-transformed** to improve prediction accuracy.
+- Features used:
+    - Location
+    - Bedrooms
+    - Bathrooms
+    - Area
+    - Property Type
+    - Area per room
+""")
